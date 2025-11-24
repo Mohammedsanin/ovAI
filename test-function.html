@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Supabase Function</title>
+</head>
+<body>
+    <h1>Testing Supabase Function</h1>
+    <button onclick="testFunction()">Test Function</button>
+    <div id="result"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const supabaseUrl = 'https://empxmiyhdjkwdyvudumr.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtcHhtaXloZGprd2R5dnVkdW1yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM4NDA0OTEsImV4cCI6MjA3OTQxNjQ5MX0.MXcj5l-s_V_P6Pi8cAX9-Z_f0XRxKqj6Rv0O1gjCv3U';
+        const supabase = createClient(supabaseUrl, supabaseKey);
+
+        async function testFunction() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Testing...';
+
+            try {
+                const { data, error } = await supabase.functions.invoke('generate-meal-plan', {
+                    body: {
+                        cyclePhase: 'follicular',
+                        dietaryRestrictions: 'vegetarian, none',
+                        preferences: 'Cuisine: mediterranean, Main Goal: balance hormones, Activity Level: moderately active, Daily Calories: 1800'
+                    }
+                });
+
+                if (error) {
+                    resultDiv.innerHTML = `
+                        <h3>Error:</h3>
+                        <pre>${JSON.stringify(error, null, 2)}</pre>
+                        <p>Status: ${error.status || 'N/A'}</p>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <h3>Success:</h3>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                }
+            } catch (err) {
+                resultDiv.innerHTML = `
+                    <h3>Unexpected Error:</h3>
+                    <pre>${err.message}</pre>
+                    <pre>${err.stack}</pre>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

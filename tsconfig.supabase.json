@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM"],
+    "types": ["./supabase/functions/types/deno"],
+    "strict": false,
+    "allowJs": true
+  },
+  "include": ["supabase/functions/**/*"]
+}
