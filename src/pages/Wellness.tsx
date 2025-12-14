@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ElementType, type ReactNode } from "react";
 import { Sidebar } from "@/components/Layout/Sidebar";
 import { Header } from "@/components/Layout/Header";
 import { EmergencySOS } from "@/components/Layout/EmergencySOS";
@@ -63,92 +63,137 @@ const WellnessPlanLoader = () => (
   </Card>
 );
 
-const WellnessPlanDisplay = ({ plan }: { plan: WellnessPlan }) => (
-  <Card className="shadow-card animate-fade-in">
-    <CardHeader>
-      <CardTitle className="flex items-center gap-2">
-        <Sparkles className="h-5 w-5 text-primary" />
-        Your Personal Wellness Plan
-      </CardTitle>
-      <CardDescription>A gentle guide crafted just for you</CardDescription>
-    </CardHeader>
-    <CardContent className="space-y-6">
+interface SectionBlockProps {
+  icon: ElementType;
+  title: string;
+  accentClass?: string;
+  children: ReactNode;
+  eyebrow?: string;
+  className?: string;
+}
+
+const SectionBlock = ({
+  icon: Icon,
+  title,
+  accentClass = "bg-primary/10 text-primary",
+  children,
+  eyebrow = "Today",
+  className = "",
+}: SectionBlockProps) => (
+  <div className={`rounded-2xl border border-border/60 bg-card/80 p-5 shadow-soft backdrop-blur ${className}`}>
+    <div className="flex items-start gap-3 mb-4">
+      <span className={`flex h-11 w-11 items-center justify-center rounded-xl ${accentClass}`}>
+        <Icon className="h-5 w-5" />
+      </span>
       <div>
-        <h3 className="font-semibold flex items-center gap-2 mb-2">
-          <BrainCircuit className="h-5 w-5 text-primary" />
-          Understanding Your Feelings
-        </h3>
-        <p className="text-muted-foreground italic">"{plan.mentalStateAnalysis}"</p>
+        <p className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">{eyebrow}</p>
+        <h3 className="text-lg font-semibold text-foreground">{title}</h3>
+      </div>
+    </div>
+    {children}
+  </div>
+);
+
+const WellnessPlanDisplay = ({ plan }: { plan: WellnessPlan }) => (
+  <Card className="shadow-card animate-fade-in border-none bg-transparent">
+    <CardContent className="space-y-8 p-0">
+      <div className="rounded-[2rem] border border-primary/20 bg-gradient-to-br from-primary/15 via-background to-accent/10 p-8 text-center shadow-glow">
+        <div className="inline-flex items-center gap-2 rounded-full bg-white/40 px-4 py-1 text-sm font-semibold text-primary backdrop-blur">
+          <Sparkles className="h-4 w-4" />
+          Crafted just for you
+        </div>
+        <h2 className="mt-4 text-3xl font-black text-foreground">Your Personal Wellness Plan</h2>
+        <p className="mt-2 text-base text-foreground/70">A gentle, grounded guide to carry you through today.</p>
       </div>
 
-      <div className="border-t pt-4">
-        <h3 className="font-semibold flex items-center gap-2 mb-2">
-          <Wind className="h-5 w-5 text-secondary" />
-          Relaxation: {plan.relaxationPlan.technique}
-        </h3>
-        <ol className="list-decimal list-inside text-muted-foreground space-y-1">
-          {plan.relaxationPlan.steps.map((step, i) => <li key={i}>{step}</li>)}
-        </ol>
-      </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <SectionBlock icon={BrainCircuit} title="Understanding Your Feelings" accentClass="bg-primary/15 text-primary">
+          <p className="text-muted-foreground text-base leading-relaxed italic">"{plan.mentalStateAnalysis}"</p>
+        </SectionBlock>
 
-      <div className="border-t pt-4">
-        <h3 className="font-semibold flex items-center gap-2 mb-2">
-          <Heart className="h-5 w-5 text-accent" />
-          Self-Care Today
-        </h3>
-        <ul className="list-disc list-inside text-muted-foreground space-y-1">
-          {plan.selfCareTips.map((tip, i) => <li key={i}>{tip}</li>)}
-        </ul>
-      </div>
-      
-      <div className="border-t pt-4">
-        <h3 className="font-semibold flex items-center gap-2 mb-2">
-          <Leaf className="h-5 w-5 text-primary" />
-          Mood Nutrition
-        </h3>
-        <p className="text-muted-foreground">
-          <span className="font-semibold text-foreground">{plan.nutritionMoodSupport.recommendation}</span>
-          {' - '}
-          {plan.nutritionMoodSupport.explanation}
-        </p>
-      </div>
+        <SectionBlock
+          icon={Wind}
+          title={`Relaxation • ${plan.relaxationPlan.technique}`}
+          accentClass="bg-secondary/15 text-secondary"
+        >
+          <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
+            {plan.relaxationPlan.steps.map((step, i) => (
+              <li key={i}>{step}</li>
+            ))}
+          </ol>
+        </SectionBlock>
 
-      {plan.bookRecommendation && (
-        <div className="border-t pt-4">
-          <h3 className="font-semibold flex items-center gap-2 mb-2">
-            <BookOpen className="h-5 w-5 text-secondary" />
-            Mindful Reading
-          </h3>
-          <div className="bg-muted/50 p-4 rounded-lg">
-            <p className="font-bold">"{plan.bookRecommendation.title}" by {plan.bookRecommendation.author}</p>
-            <p className="text-muted-foreground text-sm mt-1">{plan.bookRecommendation.reason}</p>
+        <SectionBlock icon={Heart} title="Self-Care Today" accentClass="bg-accent/15 text-accent">
+          <div className="space-y-3">
+            {plan.selfCareTips.map((tip, i) => (
+              <div key={i} className="rounded-xl bg-muted/50 p-3 text-sm text-muted-foreground">
+                <span className="font-semibold text-foreground/80 mr-2">{String(i + 1).padStart(2, '0')}.</span>
+                {tip}
+              </div>
+            ))}
           </div>
-        </div>
-      )}
+        </SectionBlock>
 
-      <div className="border-t pt-4">
-        <h3 className="font-semibold flex items-center gap-2 mb-2">
-          <PenSquare className="h-5 w-5 text-accent" />
-          A Moment to Reflect
-        </h3>
-        <p className="text-muted-foreground italic">"{plan.mindfulnessPrompt}"</p>
+        <SectionBlock icon={Leaf} title="Mood Nutrition" accentClass="bg-emerald-100 text-emerald-700">
+          <div className="rounded-xl border border-emerald-200 bg-white/70 p-4 text-sm text-muted-foreground shadow-inner">
+            <p className="font-semibold text-foreground">{plan.nutritionMoodSupport.recommendation}</p>
+            <p className="mt-2 leading-relaxed">{plan.nutritionMoodSupport.explanation}</p>
+          </div>
+        </SectionBlock>
+
+        {plan.bookRecommendation && (
+          <SectionBlock
+            icon={BookOpen}
+            title="Mindful Reading"
+            eyebrow="Soul Food"
+            accentClass="bg-indigo-100 text-indigo-700"
+            className="lg:col-span-2"
+          >
+            <div className="flex flex-col gap-4 rounded-2xl border border-indigo-100 bg-indigo-50/70 p-5 text-left md:flex-row md:items-center">
+              <div className="flex-1">
+                <p className="text-xl font-semibold text-indigo-900">"{plan.bookRecommendation.title}"</p>
+                <p className="text-sm text-indigo-700">by {plan.bookRecommendation.author}</p>
+              </div>
+              <p className="flex-1 text-sm text-indigo-900/80 leading-relaxed">{plan.bookRecommendation.reason}</p>
+            </div>
+          </SectionBlock>
+        )}
+
+        <SectionBlock
+          icon={PenSquare}
+          title="A Moment to Reflect"
+          accentClass="bg-rose-100 text-rose-700"
+          className="lg:col-span-2"
+        >
+          <blockquote className="rounded-2xl border border-rose-100 bg-white/70 p-5 text-center text-base font-medium text-rose-900 shadow-inner">
+            “{plan.mindfulnessPrompt}”
+          </blockquote>
+        </SectionBlock>
+
+        <SectionBlock icon={Star} title="Affirmations for You" accentClass="bg-amber-100 text-amber-700" className="lg:col-span-2">
+          <div className="grid gap-3 md:grid-cols-3">
+            {plan.affirmations.map((aff, i) => (
+              <div
+                key={i}
+                className="rounded-2xl border border-amber-100 bg-gradient-to-br from-white to-amber-50 p-4 text-center text-sm font-semibold text-amber-900 shadow-sm"
+              >
+                “{aff}”
+              </div>
+            ))}
+          </div>
+        </SectionBlock>
       </div>
 
-      <div className="border-t pt-4">
-        <h3 className="font-semibold flex items-center gap-2 mb-2">
-          <Star className="h-5 w-5 text-primary" />
-          Affirmations for You
-        </h3>
-        <div className="space-y-2">
-          {plan.affirmations.map((aff, i) => (
-            <p key={i} className="text-center font-medium p-3 bg-muted/50 rounded-lg">"{aff}"</p>
-          ))}
-        </div>
-      </div>
-
-      <div className="border-t pt-4 text-center">
-        <p className="text-muted-foreground">{plan.warmNote}</p>
-      </div>
+      <SectionBlock
+        icon={Sparkles}
+        title="Warm Note"
+        accentClass="bg-primary/20 text-primary"
+        eyebrow="Parting words"
+      >
+        <p className="rounded-2xl bg-primary/5 p-5 text-center text-base leading-relaxed text-foreground/80">
+          {plan.warmNote}
+        </p>
+      </SectionBlock>
     </CardContent>
   </Card>
 );

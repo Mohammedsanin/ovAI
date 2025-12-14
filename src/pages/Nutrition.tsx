@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Sidebar } from "@/components/Layout/Sidebar";
 import { Header } from "@/components/Layout/Header";
 import { EmergencySOS } from "@/components/Layout/EmergencySOS";
@@ -9,19 +9,26 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import MealPlanDisplay from "@/components/Nutrition/MealPlanDisplay";
+import MealPlanDisplay, { MealActionSavePayload, MealActionSharePayload } from "@/components/Nutrition/MealPlanDisplay";
+import type { Database } from "@/integrations/supabase/types";
+import { formatDistanceToNow } from "date-fns";
 import {
+  BookmarkPlus,
   Baby,
   Beef,
   Bike,
   Check,
+  ChevronDown,
   ChevronRight,
+  ChevronUp,
   CircleDashed,
   Droplets,
   Flame,
   Leaf,
   Minus,
   PersonStanding,
+  Play,
+  Share2,
   Sparkles,
   Sprout,
   Target,
@@ -99,6 +106,44 @@ const ChoiceChip = ({
   </Card>
 );
 
+type SavedMealRow = Database["public"]["Tables"]["saved_meals"]["Row"];
+
+interface SavedMeal {
+  id: string;
+  mealType: string;
+  mealName: string;
+  description?: string | null;
+  calories?: string | null;
+  fiber?: string | null;
+  ingredients: string[];
+  recipeSteps: string[];
+  videoTitle?: string | null;
+  videoUrl?: string | null;
+  createdAt: string;
+}
+
+const normalizeStringArray = (value: SavedMealRow["ingredients"] | SavedMealRow["recipe_steps"]): string[] => {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value.map((item) =>
+      typeof item === "string" ? item : typeof item === "number" ? item.toString() : JSON.stringify(item)
+    );
+  }
+
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed.map((item) => (typeof item === "string" ? item : JSON.stringify(item)));
+      }
+    } catch {
+      return [value];
+    }
+  }
+
+  return [];
+};
+
 const Nutrition = () => {
   const [goal, setGoal] = useState<"pregnant" | "cycle">("cycle");
   const [cyclePhase, setCyclePhase] = useState("follicular");
@@ -110,6 +155,9 @@ const Nutrition = () => {
   const [allergies, setAllergies] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [mealPlan, setMealPlan] = useState<any>(null);
+  const [savedMeals, setSavedMeals] = useState<SavedMeal[]>([]);
+  const [isSavedMealsExpanded, setIsSavedMealsExpanded] = useState(false);
+  const [isLoadingSavedMeals, setIsLoadingSavedMeals] = useState(true);
   const { toast } = useToast();
 
   const dietOptions = [
@@ -134,6 +182,212 @@ const Nutrition = () => {
     { id: "balance_hormones", label: "Balance Hormones", icon: <Wind className="h-5 w-5 text-purple-500" /> },
     { id: "weight_management", label: "Weight Management", icon: <Target className="h-5 w-5 text-blue-500" /> },
   ];
+
+  const loadSavedMeals = useCallback(async () => {
+    setIsLoadingSavedMeals(true);
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setSavedMeals([]);
+        setIsLoadingSavedMeals(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("saved_meals")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      const parsedMeals: SavedMeal[] = (data ?? []).map((meal) => ({
+        id: meal.id,
+        mealType: meal.meal_type,
+        mealName: meal.meal_name,
+        description: meal.description,
+        calories: meal.calories,
+        fiber: meal.fiber,
+        ingredients: normalizeStringArray(meal.ingredients as SavedMealRow["ingredients"]),
+        recipeSteps: normalizeStringArray(meal.recipe_steps as SavedMealRow["recipe_steps"]),
+        videoTitle: meal.video_title,
+        videoUrl: meal.video_url,
+        createdAt: meal.created_at,
+      }));
+
+      setSavedMeals(parsedMeals);
+    } catch (error) {
+      console.error("Failed to load saved meals:", error);
+      toast({
+        variant: "destructive",
+        title: "Couldn't load saved meals",
+        description: "Please try refreshing the page.",
+      });
+    } finally {
+      setIsLoadingSavedMeals(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    loadSavedMeals();
+  }, [loadSavedMeals]);
+
+  const shareMealDetails = async ({
+    mealName,
+    mealType,
+    description,
+    ingredients,
+    recipe,
+    videoUrl,
+  }: {
+    mealName: string;
+    mealType: string;
+    description?: string | null;
+    ingredients: string[];
+    recipe: string[];
+    videoUrl?: string | null;
+  }) => {
+    const ingredientText = ingredients.length ? ingredients.map((item) => `• ${item}`).join("\n") : "-";
+    const recipeText = recipe.length
+      ? recipe.map((step, idx) => `${idx + 1}. ${step}`).join("\n")
+      : "-";
+
+    const shareText = `Meal Plan: ${mealName} (${mealType})\n\n${description ?? ""}\n\nIngredients:\n${ingredientText}\n\nRecipe Steps:\n${recipeText}${videoUrl ? `\n\nWatch: ${videoUrl}` : ""}`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: mealName, text: shareText });
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareText);
+        toast({
+          title: "Meal details copied",
+          description: "Paste anywhere to share it.",
+        });
+      } else {
+        throw new Error("Share not supported");
+      }
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        return;
+      }
+      console.error("Failed to share meal:", error);
+      toast({
+        variant: "destructive",
+        title: "Unable to share meal",
+        description: "Please try again.",
+      });
+    }
+  };
+
+  const handleSaveMeal = async (payload: MealActionSavePayload) => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        toast({
+          variant: "destructive",
+          title: "Sign in to save meals",
+          description: "Create an account or sign in to store meal plans.",
+        });
+        return;
+      }
+
+      const { error } = await supabase.from("saved_meals").insert({
+        user_id: user.id,
+        meal_type: payload.mealType,
+        meal_name: payload.mealName,
+        description: payload.description,
+        calories: payload.calories,
+        fiber: payload.fiber,
+        ingredients: payload.ingredients,
+        recipe_steps: payload.recipe,
+        video_id: payload.video?.videoId ?? null,
+        video_title: payload.video?.videoTitle ?? null,
+        video_url: payload.video?.videoUrl ?? null,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Meal saved",
+        description: `${payload.mealName} is now in Saved Meals`,
+      });
+
+      await loadSavedMeals();
+    } catch (error: any) {
+      console.error("Failed to save meal:", error);
+      toast({
+        variant: "destructive",
+        title: "Couldn't save meal",
+        description: error?.message || "Please try again.",
+      });
+    }
+  };
+
+  const handleShareMeal = async (payload: MealActionSharePayload) => {
+    await shareMealDetails({
+      mealName: payload.mealName,
+      mealType: payload.mealType,
+      description: payload.description,
+      ingredients: payload.ingredients,
+      recipe: payload.recipe,
+      videoUrl: payload.videoUrl,
+    });
+  };
+
+  const handleShareSavedMeal = async (meal: SavedMeal) => {
+    await shareMealDetails({
+      mealName: meal.mealName,
+      mealType: meal.mealType,
+      description: meal.description,
+      ingredients: meal.ingredients,
+      recipe: meal.recipeSteps,
+      videoUrl: meal.videoUrl,
+    });
+  };
+
+  const handleRemoveSavedMeal = async (mealId: string) => {
+    try {
+      setSavedMeals((prev) => prev.filter((meal) => meal.id !== mealId));
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error("Please sign in to manage saved meals");
+      }
+
+      const { error } = await supabase
+        .from("saved_meals")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("id", mealId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Meal removed",
+        description: "This saved plan has been cleared from your list.",
+      });
+    } catch (error: any) {
+      console.error("Failed to remove saved meal:", error);
+      toast({
+        variant: "destructive",
+        title: "Couldn't remove meal",
+        description: error?.message || "Please try again.",
+      });
+      await loadSavedMeals();
+    }
+  };
+
+  const savedMealsCountLabel = savedMeals.length === 1 ? "meal" : "meals";
+  const savedMealsSubtitle = savedMeals.length === 0
+    ? "No saved meals yet — capture any plan you love to build your personal cookbook."
+    : `You have ${savedMeals.length} saved ${savedMealsCountLabel} ready to revisit.`;
+  const shouldShowSavedMealsBody = isSavedMealsExpanded;
 
   const handleGeneratePlan = async () => {
     setIsLoading(true);
@@ -198,12 +452,164 @@ const Nutrition = () => {
             </header>
 
             <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-8 pb-20">
+              <Card className="bg-card/80 backdrop-blur border-primary/10 shadow-xl">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between border-b border-border/60 px-6 py-5">
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.3em] text-primary flex items-center gap-2">
+                      <BookmarkPlus className="h-4 w-4" /> Saved Meal Plans
+                    </p>
+                    <p className="text-sm text-muted-foreground">{savedMealsSubtitle}</p>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    aria-expanded={isSavedMealsExpanded}
+                    onClick={() => setIsSavedMealsExpanded((prev) => !prev)}
+                    className="flex items-center gap-2 rounded-full"
+                  >
+                    {isSavedMealsExpanded ? "Collapse" : "Expand"}
+                    {isSavedMealsExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Button>
+                </div>
+
+                {shouldShowSavedMealsBody && (
+                  <div className="p-6">
+                    {isLoadingSavedMeals ? (
+                      <div className="grid gap-4 md:grid-cols-2">
+                        {[1, 2].map((item) => (
+                          <Card key={item} className="p-4 space-y-3">
+                            <Skeleton className="h-4 w-32" />
+                            <Skeleton className="h-6 w-1/2" />
+                            <Skeleton className="h-16 w-full" />
+                          </Card>
+                        ))}
+                      </div>
+                    ) : savedMeals.length === 0 ? (
+                      <div className="text-center text-sm text-muted-foreground">
+                        Save a meal from your generated plan to see it here.
+                      </div>
+                    ) : (
+                      <div className="grid gap-6 md:grid-cols-2">
+                        {savedMeals.map((meal) => (
+                          <article
+                            key={meal.id}
+                            className="relative overflow-hidden rounded-3xl border border-primary/10 bg-gradient-to-br from-primary/5 via-background to-accent/5 p-6 shadow-sm"
+                          >
+                            <div className="pointer-events-none absolute inset-0 opacity-60 [background-image:radial-gradient(circle_at_top,_rgba(255,255,255,0.6),_transparent_55%)]" />
+                            <div className="relative z-10 space-y-5">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="space-y-1.5">
+                                  <span className="text-[11px] font-semibold tracking-[0.3em] text-primary/80">
+                                    {meal.mealType}
+                                  </span>
+                                  <h4 className="text-xl font-semibold text-foreground">{meal.mealName}</h4>
+                                  {meal.description && (
+                                    <p className="text-sm text-muted-foreground leading-relaxed">{meal.description}</p>
+                                  )}
+                                </div>
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="icon"
+                                    variant="outline"
+                                    className="h-9 w-9 rounded-full border-primary/30 text-primary"
+                                    onClick={() => handleShareSavedMeal(meal)}
+                                  >
+                                    <Share2 className="h-4 w-4" />
+                                    <span className="sr-only">Share saved meal</span>
+                                  </Button>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-9 w-9 rounded-full text-destructive hover:bg-destructive/10"
+                                    onClick={() => handleRemoveSavedMeal(meal.id)}
+                                  >
+                                    ×
+                                    <span className="sr-only">Remove saved meal</span>
+                                  </Button>
+                                </div>
+                              </div>
+
+                              {(meal.calories || meal.fiber) && (
+                                <div className="flex flex-wrap gap-2 text-xs font-semibold">
+                                  {meal.calories && (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-white/70 px-3 py-1 text-orange-600">
+                                      <Flame className="h-3 w-3" /> {meal.calories}
+                                    </span>
+                                  )}
+                                  {meal.fiber && (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-white/70 px-3 py-1 text-green-600">
+                                      <Leaf className="h-3 w-3" /> {meal.fiber} fiber
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+
+                              {meal.ingredients.length > 0 && (
+                                <div className="rounded-2xl bg-background/70 p-4">
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
+                                    Pantry & produce
+                                  </p>
+                                  <div className="flex flex-wrap gap-2">
+                                    {meal.ingredients.map((ingredient) => (
+                                      <span
+                                        key={ingredient}
+                                        className="rounded-full bg-white/80 px-3 py-1 text-sm text-foreground shadow-sm"
+                                      >
+                                        {ingredient}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {meal.recipeSteps.length > 0 && (
+                                <div className="rounded-2xl bg-background/80 p-4 space-y-3">
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                    Recipe flow
+                                  </p>
+                                  <ol className="space-y-3 text-sm text-foreground/90">
+                                    {meal.recipeSteps.map((step, idx) => (
+                                      <li key={`${meal.id}-step-${idx}`} className="flex gap-3">
+                                        <span className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
+                                          {idx + 1}
+                                        </span>
+                                        <span>{step}</span>
+                                      </li>
+                                    ))}
+                                  </ol>
+                                </div>
+                              )}
+
+                              <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
+                                <span>Saved {formatDistanceToNow(new Date(meal.createdAt), { addSuffix: true })}</span>
+                                {meal.videoUrl && (
+                                  <a
+                                    href={meal.videoUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-primary hover:underline"
+                                  >
+                                    <Play className="h-3 w-3" /> Watch video
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </Card>
+
               {mealPlan ? (
                 <MealPlanDisplay
                   mealPlan={mealPlan.mealPlan}
                   shoppingList={mealPlan.shoppingList}
                   videoSuggestions={mealPlan.videoSuggestions}
                   onGenerateNew={() => setMealPlan(null)}
+                  onSaveMeal={handleSaveMeal}
+                  onShareMeal={handleShareMeal}
                 />
               ) : isLoading ? (
                 <Card className="p-8 space-y-6">

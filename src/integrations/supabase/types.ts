@@ -71,6 +71,27 @@ export type Database = {
         }
         Relationships: []
       }
+      cycle_predictions: {
+        Row: {
+          created_at: string
+          id: string
+          predicted_date: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          predicted_date: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          predicted_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       cycle_entries: {
         Row: {
           created_at: string
@@ -226,6 +247,93 @@ export type Database = {
         }
         Relationships: []
       }
+      saved_meals: {
+        Row: {
+          calories: string | null
+          created_at: string
+          description: string | null
+          fiber: string | null
+          id: string
+          ingredients: Json | null
+          meal_name: string
+          meal_type: string
+          recipe_steps: Json | null
+          user_id: string
+          video_id: string | null
+          video_title: string | null
+          video_url: string | null
+        }
+        Insert: {
+          calories?: string | null
+          created_at?: string
+          description?: string | null
+          fiber?: string | null
+          id?: string
+          ingredients?: Json | null
+          meal_name: string
+          meal_type: string
+          recipe_steps?: Json | null
+          user_id: string
+          video_id?: string | null
+          video_title?: string | null
+          video_url?: string | null
+        }
+        Update: {
+          calories?: string | null
+          created_at?: string
+          description?: string | null
+          fiber?: string | null
+          id?: string
+          ingredients?: Json | null
+          meal_name?: string
+          meal_type?: string
+          recipe_steps?: Json | null
+          user_id?: string
+          video_id?: string | null
+          video_title?: string | null
+          video_url?: string | null
+        }
+        Relationships: []
+      }
+      saved_workouts: {
+        Row: {
+          created_at: string
+          cycle_phase: string | null
+          day_number: number | null
+          description: string | null
+          equipment: string | null
+          exercises: Json | null
+          fitness_goal: string | null
+          id: string
+          routine_title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          cycle_phase?: string | null
+          day_number?: number | null
+          description?: string | null
+          equipment?: string | null
+          exercises?: Json | null
+          fitness_goal?: string | null
+          id?: string
+          routine_title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          cycle_phase?: string | null
+          day_number?: number | null
+          description?: string | null
+          equipment?: string | null
+          exercises?: Json | null
+          fitness_goal?: string | null
+          id?: string
+          routine_title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       medications: {
         Row: {
           active: boolean | null
@@ -312,6 +420,27 @@ export type Database = {
           notes?: string | null
           severity?: number | null
           symptom_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      period_history: {
+        Row: {
+          created_at: string
+          id: string
+          period_start_date: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          period_start_date: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          period_start_date?: string
           user_id?: string
         }
         Relationships: []

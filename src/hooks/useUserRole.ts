@@ -53,15 +53,17 @@ export const useUserRole = () => {
   const fetchUserData = async (userId: string) => {
     try {
       // Fetch user role
-      const { data: roleData } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .order('role', { ascending: true })
-        .limit(1)
-        .maybeSingle();
+      const { data: roleData, error: roleError } = await supabase.rpc('get_user_role', {
+        _user_id: userId,
+      });
 
-      setUserRole(roleData?.role as UserRole || 'user');
+      if (roleError) {
+        console.error('Error fetching user role via RPC:', roleError);
+      }
+
+      const normalizedRole = typeof roleData === 'string' ? roleData.trim().toLowerCase() : undefined;
+      const validRoles: UserRole[] = ['admin', 'doctor', 'user'];
+      setUserRole(validRoles.includes(normalizedRole as UserRole) ? (normalizedRole as UserRole) : 'user');
 
       // Fetch user profile
       const { data: profileData } = await supabase

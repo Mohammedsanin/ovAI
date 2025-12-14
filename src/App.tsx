@@ -17,7 +17,7 @@ import Community from "./pages/Community";
 import Chatbot from "./pages/Chatbot";
 import Wellness from "./pages/Wellness";
 import { Settings } from "./pages/Settings";
-import { WellnessHistory } from "./pages/WellnessHistory";
+import WellnessHistory from "./pages/WellnessHistory";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();

@@ -1,9 +1,10 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ShoppingCart, Flame, Leaf, ChefHat, Video, Play } from "lucide-react";
+import { ShoppingCart, Flame, Leaf, ChefHat, Video, Play, MoreVertical, Share2, BookmarkPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 interface Meal {
   name: string;
@@ -35,23 +36,108 @@ interface MealPlanDisplayProps {
   shoppingList?: string[];
   videoSuggestions?: Array<VideoSuggestion>;
   onGenerateNew: () => void;
+  onSaveMeal?: (payload: MealActionSavePayload) => void | Promise<void>;
+  onShareMeal?: (payload: MealActionSharePayload) => void | Promise<void>;
+}
+
+export interface MealActionSavePayload {
+  mealType: string;
+  mealName: string;
+  description: string;
+  calories: string;
+  fiber: string;
+  ingredients: string[];
+  recipe: string[];
+  video?: {
+    videoId?: string | null;
+    videoTitle?: string | null;
+    videoUrl?: string | null;
+  };
+}
+
+export interface MealActionSharePayload {
+  mealType: string;
+  mealName: string;
+  description: string;
+  ingredients: string[];
+  recipe: string[];
+  videoUrl?: string;
 }
 
 const MealCard = ({ 
   meal, 
   mealType, 
-  videoSuggestion 
+  videoSuggestion,
+  onSave,
+  onShare
 }: { 
   meal: Meal; 
   mealType: string; 
   videoSuggestion?: VideoSuggestion;
-}) => (
-  <Card className="overflow-hidden hover:shadow-lg transition-shadow">
-    <CardHeader className="bg-gradient-to-br from-primary/10 to-accent/10">
-      <div className="flex items-center justify-between">
-        <CardTitle className="text-xl">{meal.name}</CardTitle>
-        <Badge variant="secondary" className="text-xs">{mealType}</Badge>
-      </div>
+  onSave?: (payload: MealActionSavePayload) => void;
+  onShare?: (payload: MealActionSharePayload) => void;
+}) => {
+  const handleSave = () => {
+    onSave?.({
+      mealType,
+      mealName: meal.name,
+      description: meal.description,
+      calories: meal.calories,
+      fiber: meal.fiber,
+      ingredients: meal.ingredients,
+      recipe: meal.recipe,
+      video: videoSuggestion
+        ? {
+            videoId: videoSuggestion.videoId ?? null,
+            videoTitle: videoSuggestion.videoTitle ?? videoSuggestion.title ?? null,
+            videoUrl: videoSuggestion.videoUrl ?? null,
+          }
+        : undefined,
+    });
+  };
+
+  const handleShare = () => {
+    onShare?.({
+      mealType,
+      mealName: meal.name,
+      description: meal.description,
+      ingredients: meal.ingredients,
+      recipe: meal.recipe,
+      videoUrl: videoSuggestion?.videoUrl ?? undefined,
+    });
+  };
+
+  return (
+    <Card className="overflow-hidden hover:shadow-lg transition-shadow">
+      <CardHeader className="bg-gradient-to-br from-primary/10 to-accent/10">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <CardTitle className="text-xl">{meal.name}</CardTitle>
+            <Badge variant="secondary" className="text-xs mt-1">{mealType}</Badge>
+          </div>
+          {(onSave || onShare) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground shrink-0">
+                  <MoreVertical className="h-4 w-4" />
+                  <span className="sr-only">Open meal actions</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                {onSave && (
+                  <DropdownMenuItem onClick={handleSave}>
+                    <BookmarkPlus className="mr-2 h-4 w-4" /> Save meal
+                  </DropdownMenuItem>
+                )}
+                {onShare && (
+                  <DropdownMenuItem onClick={handleShare}>
+                    <Share2 className="mr-2 h-4 w-4" /> Share meal
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
       <CardDescription>{meal.description}</CardDescription>
       <div className="flex gap-4 mt-2 text-sm">
         <span className="flex items-center gap-1">
@@ -142,8 +228,9 @@ const MealCard = ({
     </CardContent>
   </Card>
 );
+};
 
-export default function MealPlanDisplay({ mealPlan, shoppingList = [], videoSuggestions = [], onGenerateNew }: MealPlanDisplayProps) {
+export default function MealPlanDisplay({ mealPlan, shoppingList = [], videoSuggestions = [], onGenerateNew, onSaveMeal, onShareMeal }: MealPlanDisplayProps) {
   if (!mealPlan) {
     return (
       <div className="text-center space-y-4">
@@ -181,6 +268,8 @@ export default function MealPlanDisplay({ mealPlan, shoppingList = [], videoSugg
             meal={mealPlan.breakfast} 
             mealType="Breakfast" 
             videoSuggestion={getVideoForMeal('breakfast')}
+            onSave={onSaveMeal}
+            onShare={onShareMeal}
           />
         )}
         {mealPlan.midMorningSnack && (
@@ -188,6 +277,8 @@ export default function MealPlanDisplay({ mealPlan, shoppingList = [], videoSugg
             meal={mealPlan.midMorningSnack} 
             mealType="Mid-Morning Snack" 
             videoSuggestion={getVideoForMeal('midMorningSnack')}
+            onSave={onSaveMeal}
+            onShare={onShareMeal}
           />
         )}
         {mealPlan.lunch && (
@@ -195,6 +286,8 @@ export default function MealPlanDisplay({ mealPlan, shoppingList = [], videoSugg
             meal={mealPlan.lunch} 
             mealType="Lunch" 
             videoSuggestion={getVideoForMeal('lunch')}
+            onSave={onSaveMeal}
+            onShare={onShareMeal}
           />
         )}
         {mealPlan.afternoonSnack && (
@@ -202,6 +295,8 @@ export default function MealPlanDisplay({ mealPlan, shoppingList = [], videoSugg
             meal={mealPlan.afternoonSnack} 
             mealType="Afternoon Snack" 
             videoSuggestion={getVideoForMeal('afternoonSnack')}
+            onSave={onSaveMeal}
+            onShare={onShareMeal}
           />
         )}
         {mealPlan.dinner && (
@@ -209,6 +304,8 @@ export default function MealPlanDisplay({ mealPlan, shoppingList = [], videoSugg
             meal={mealPlan.dinner} 
             mealType="Dinner" 
             videoSuggestion={getVideoForMeal('dinner')}
+            onSave={onSaveMeal}
+            onShare={onShareMeal}
           />
         )}
       </div>

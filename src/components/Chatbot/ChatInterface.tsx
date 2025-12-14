@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -6,7 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Send, Mic, Volume2, Loader2, Languages } from 'lucide-react';
+import { Send, Mic, Volume2, Loader2, Languages, Clock, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -30,8 +30,48 @@ export const ChatInterface = () => {
   const [isListening, setIsListening] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [language, setLanguage] = useState('English');
+  const [savedPrompts, setSavedPrompts] = useState<string[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
   const recognitionRef = useRef<any>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const HISTORY_KEY = 'chatbot_previous_prompts';
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = window.localStorage.getItem(HISTORY_KEY);
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            setSavedPrompts(parsed);
+          }
+        } catch {
+          window.localStorage.removeItem(HISTORY_KEY);
+        }
+      }
+    }
+  }, []);
+
+  const persistPrompts = useCallback((prompts: string[]) => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(HISTORY_KEY, JSON.stringify(prompts));
+    }
+  }, []);
+
+  const rememberPrompt = useCallback((prompt: string) => {
+    setSavedPrompts((prev) => {
+      const next = [prompt, ...prev.filter((p) => p !== prompt)].slice(0, 6);
+      persistPrompts(next);
+      return next;
+    });
+  }, [persistPrompts]);
+
+  const clearHistory = () => {
+    setSavedPrompts([]);
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(HISTORY_KEY);
+    }
+  };
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -136,6 +176,7 @@ export const ChatInterface = () => {
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
+    rememberPrompt(text);
 
     try {
       const { data, error } = await supabase.functions.invoke('chatbot', {
@@ -241,6 +282,48 @@ export const ChatInterface = () => {
 
   return (
     <Card className="flex flex-col h-[600px] shadow-soft">
+      {savedPrompts.length > 0 && (
+        <div className="border-b bg-muted/40 px-4 py-3 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+              <Clock className="h-4 w-4" />
+              Previous chats
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setShowHistory((prev) => !prev)}>
+                {showHistory ? (
+                  <>
+                    Hide <ChevronUp className="ml-1 h-4 w-4" />
+                  </>
+                ) : (
+                  <>
+                    Show <ChevronDown className="ml-1 h-4 w-4" />
+                  </>
+                )}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={clearHistory}>
+                <Trash2 className="h-4 w-4" />
+                <span className="sr-only">Clear history</span>
+              </Button>
+            </div>
+          </div>
+          {showHistory && (
+            <div className="flex flex-wrap gap-2">
+              {savedPrompts.map((prompt) => (
+                <Button
+                  key={prompt}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => sendMessage(prompt)}
+                >
+                  {prompt}
+                </Button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       <ScrollArea className="flex-1 p-4" ref={scrollRef}>
         <div className="space-y-4">
           {messages.length === 0 && (

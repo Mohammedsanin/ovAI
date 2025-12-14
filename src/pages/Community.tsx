@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Sidebar } from "@/components/Layout/Sidebar";
 import { Header } from "@/components/Layout/Header";
 import { EmergencySOS } from "@/components/Layout/EmergencySOS";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MessageCircle, Heart, Send } from "lucide-react";
+import { MessageCircle, Heart, Send, Stethoscope, Users } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { DiscussionDialog } from "@/components/Community/DiscussionDialog";
@@ -35,6 +35,12 @@ interface Reply {
   user_id: string;
 }
 
+interface UserProfileInfo {
+  display_name: string;
+  avatar_url: string | null;
+  role?: string | null;
+}
+
 const Community = () => {
   const { toast } = useToast();
   const { userRole, isDoctor, isAdmin, user } = useUserRole();
@@ -44,7 +50,8 @@ const Community = () => {
   const [selectedThread, setSelectedThread] = useState<Discussion | null>(null);
   const [newReply, setNewReply] = useState('');
   const [isPostingReply, setIsPostingReply] = useState(false);
-  const [userProfiles, setUserProfiles] = useState<Map<string, any>>(new Map());
+  const [userProfiles, setUserProfiles] = useState<Map<string, UserProfileInfo>>(new Map());
+  const [activeFilter, setActiveFilter] = useState<'all' | 'doctor-insights' | 'ask-doctor'>('all');
 
   useEffect(() => {
     fetchDiscussions();
@@ -122,15 +129,24 @@ const Community = () => {
 
       if (error) throw error;
       
-      const discussions = data || [];
-      setDiscussions(discussions);
-      
-      if (discussions.length > 0 && !selectedThread) {
-        setSelectedThread(discussions[0]);
-      }
-      
+      const rawDiscussions = (data || []) as any[];
+      const formatted: Discussion[] = rawDiscussions.map((discussion) => ({
+        id: discussion.id,
+        title: discussion.title ?? 'Untitled',
+        content: discussion.content ?? '',
+        category: discussion.category ?? null,
+        likes: Array.isArray(discussion.likes) ? discussion.likes : [],
+        created_at: discussion.created_at,
+        user_id: discussion.user_id,
+        is_answered: Boolean(discussion.is_answered),
+        doctor_response: discussion.doctor_response,
+        reply_count: typeof discussion.reply_count === 'number' ? discussion.reply_count : (discussion.reply_count?.length ?? 0),
+      }));
+
+      setDiscussions(formatted);
+
       // Fetch all user profiles
-      const userIds = [...new Set(discussions.map(d => d.user_id))];
+      const userIds = [...new Set(formatted.map(d => d.user_id))];
       await Promise.all(userIds.map(fetchUserProfile));
       
     } catch (error) {
@@ -169,14 +185,27 @@ const Community = () => {
     if (userProfiles.has(userId)) return;
     
     try {
-      const { data } = await supabase
-        .from('user_profiles')
-        .select('display_name, avatar_url')
-        .eq('user_id', userId)
-        .single();
+      const [{ data: profile }, { data: roleData }] = await Promise.all([
+        supabase
+          .from('user_profiles')
+          .select('display_name, avatar_url')
+          .eq('user_id', userId)
+          .single(),
+        supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', userId)
+          .single()
+      ]);
       
-      if (data) {
-        setUserProfiles(prev => new Map(prev).set(userId, data));
+      if (profile) {
+        const normalizedRole = roleData?.role?.trim().toLowerCase();
+        const validRoles = ['admin', 'doctor', 'user'];
+        setUserProfiles(prev => new Map(prev).set(userId, {
+          display_name: profile.display_name ?? 'Unknown',
+          avatar_url: profile.avatar_url ?? null,
+          role: validRoles.includes(normalizedRole) ? normalizedRole : null,
+        }));
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
@@ -195,12 +224,38 @@ const Community = () => {
     return `${diffInDays}d ago`;
   };
 
-  const getUserProfile = (userId: string) => {
+  const getUserProfile = (userId: string): UserProfileInfo => {
     return userProfiles.get(userId) || { display_name: 'Unknown', avatar_url: null };
   };
 
+  const filteredDiscussions = useMemo(() => {
+    return discussions.filter((discussion) => {
+      if (activeFilter === 'doctor-insights') {
+        return discussion.category === 'Doctor Insights';
+      }
+      if (activeFilter === 'ask-doctor') {
+        return discussion.category === 'Ask Doctor';
+      }
+      return true;
+    });
+  }, [discussions, activeFilter]);
+
+  useEffect(() => {
+    if (filteredDiscussions.length === 0) {
+      setSelectedThread(null);
+      return;
+    }
+    if (!selectedThread || !filteredDiscussions.some((d) => d.id === selectedThread.id)) {
+      setSelectedThread(filteredDiscussions[0]);
+    }
+  }, [filteredDiscussions, selectedThread?.id]);
+
   const handlePostReply = async () => {
     if (!newReply.trim() || !selectedThread || !user) return;
+    if (selectedThread.category === 'Ask Doctor' && !isDoctor) {
+      toast({ title: 'Doctor replies only', description: 'Only verified doctors may reply to Ask Doctor threads.', variant: 'destructive' });
+      return;
+    }
     
     setIsPostingReply(true);
     try {
@@ -239,7 +294,7 @@ const Community = () => {
     try {
       const { error } = await supabase
         .from('discussions')
-        .update({ likes: newLikes })
+        .update({ likes: newLikes as any })
         .eq('id', discussion.id);
 
       if (error) throw error;
@@ -273,22 +328,81 @@ const Community = () => {
               </p>
             </div>
 
+            <div className="grid gap-4 md:grid-cols-3">
+              <Button
+                variant={activeFilter === 'all' ? 'default' : 'outline'}
+                className="justify-start"
+                onClick={() => setActiveFilter('all')}
+              >
+                <Users className="h-4 w-4 mr-2" />
+                Community Voices
+              </Button>
+              <Button
+                variant={activeFilter === 'doctor-insights' ? 'default' : 'outline'}
+                className="justify-start"
+                onClick={() => setActiveFilter('doctor-insights')}
+              >
+                <Stethoscope className="h-4 w-4 mr-2" />
+                Doctor Insights
+              </Button>
+              <Button
+                variant={activeFilter === 'ask-doctor' ? 'default' : 'outline'}
+                className="justify-start"
+                onClick={() => setActiveFilter('ask-doctor')}
+              >
+                <MessageCircle className="h-4 w-4 mr-2" />
+                Ask Doctor
+              </Button>
+            </div>
+
             <div className="grid gap-6 lg:grid-cols-3">
               <Card className="lg:col-span-1 shadow-card">
                 <CardHeader>
                   <div className="flex justify-between items-center">
-                    <CardTitle>Discussions</CardTitle>
-                    <DiscussionDialog />
+                    <CardTitle>
+                      {activeFilter === 'doctor-insights'
+                        ? 'Doctor Lounge'
+                        : activeFilter === 'ask-doctor'
+                        ? 'Ask Doctor'
+                        : 'Discussions'}
+                    </CardTitle>
+                    {activeFilter === 'ask-doctor' ? (
+                      <DiscussionDialog
+                        triggerLabel="Ask a Doctor"
+                        presetCategory="Ask Doctor"
+                        hideCategorySelect
+                        buttonVariant="outline"
+                        description="Ask a question for doctors to answer"
+                      />
+                    ) : (
+                      <DiscussionDialog
+                        triggerLabel={activeFilter === 'doctor-insights' ? 'Doctor Update' : 'New Post'}
+                        presetCategory={activeFilter === 'doctor-insights' ? 'Doctor Insights' : null}
+                        hideCategorySelect={activeFilter === 'doctor-insights'}
+                        restrictToDoctor={activeFilter === 'doctor-insights'}
+                        buttonVariant={activeFilter === 'doctor-insights' ? 'secondary' : 'default'}
+                        description={activeFilter === 'doctor-insights'
+                          ? 'Share official updates or clinical insights'
+                          : 'Share your thoughts with the community'}
+                        disabledTooltip="Only doctors can publish in Doctor Insights"
+                      />
+                    )}
                   </div>
-                  <p className="text-sm text-muted-foreground">Browse topics and join the conversation</p>
+                  <p className="text-sm text-muted-foreground">
+                    {activeFilter === 'doctor-insights'
+                      ? 'Official updates shared by medical professionals'
+                      : activeFilter === 'ask-doctor'
+                      ? 'Post questions for doctors to answer'
+                      : 'Browse topics and join the conversation'}
+                  </p>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {loading ? (
                     <p className="text-center text-muted-foreground py-8">Loading discussions...</p>
-                  ) : discussions.length === 0 ? (
+                  ) : filteredDiscussions.length === 0 ? (
                     <p className="text-center text-muted-foreground py-8">No discussions yet. Start one!</p>
                   ) : (
-                    discussions.map((discussion) => {
+                    filteredDiscussions.map((discussion) => {
                       const profile = getUserProfile(discussion.user_id);
                       return (
                         <div
@@ -368,26 +482,28 @@ const Community = () => {
 
                       <div className="mt-6 space-y-4 border-t pt-4">
                         <h3 className="font-semibold">Replies</h3>
-                        {replies.map((reply) => {
-                          const profile = getUserProfile(reply.user_id);
-                          return (
-                            <div key={reply.id} className="flex items-start gap-3">
-                              <Avatar className="h-8 w-8">
-                                <AvatarImage src={profile.avatar_url || undefined} />
-                                <AvatarFallback>{profile.display_name?.[0] || 'U'}</AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1">
-                                <div className="bg-accent/70 p-3 rounded-lg rounded-tl-none">
-                                  <p className="font-semibold text-sm">{profile.display_name}</p>
-                                  <p className="text-sm text-muted-foreground mt-1">{reply.content}</p>
+                        {replies
+                          .filter((reply) => selectedThread.category === 'Ask Doctor' ? getUserProfile(reply.user_id).role === 'doctor' : true)
+                          .map((reply) => {
+                            const profile = getUserProfile(reply.user_id);
+                            return (
+                              <div key={reply.id} className="flex items-start gap-3">
+                                <Avatar className="h-8 w-8">
+                                  <AvatarImage src={profile.avatar_url || undefined} />
+                                  <AvatarFallback>{profile.display_name?.[0] || 'U'}</AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1">
+                                  <div className="bg-accent/70 p-3 rounded-lg rounded-tl-none">
+                                    <p className="font-semibold text-sm">{profile.display_name}</p>
+                                    <p className="text-sm text-muted-foreground mt-1">{reply.content}</p>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {formatTimeAgo(reply.created_at)}
+                                  </p>
                                 </div>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  {formatTimeAgo(reply.created_at)}
-                                </p>
                               </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
 
                         {user && (
                           <div className="flex items-start gap-3 pt-4">
@@ -401,6 +517,7 @@ const Community = () => {
                                 onChange={(e) => setNewReply(e.target.value)}
                                 placeholder="Add your reply..."
                                 className="min-h-[60px]"
+                                disabled={selectedThread?.category === 'Ask Doctor' && !isDoctor}
                                 onKeyDown={(e) => {
                                   if (e.key === 'Enter' && !e.shiftKey) {
                                     e.preventDefault();
@@ -410,7 +527,7 @@ const Community = () => {
                               />
                               <Button
                                 onClick={handlePostReply}
-                                disabled={isPostingReply || !newReply.trim()}
+                                disabled={isPostingReply || !newReply.trim() || (selectedThread?.category === 'Ask Doctor' && !isDoctor)}
                                 size="icon"
                               >
                                 <Send className="h-4 w-4" />

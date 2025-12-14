@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ListVideo, Dumbbell, CheckCircle } from "lucide-react";
+import { ListVideo, Dumbbell, CheckCircle, BookmarkPlus, Share2 } from "lucide-react";
 
 interface Exercise {
   name: string;
@@ -18,9 +18,26 @@ interface WorkoutDay {
   exercises: Exercise[];
 }
 
+interface WorkoutPlanMeta {
+  cyclePhase?: string;
+  fitnessGoal?: string;
+  equipment?: string;
+}
+
+export interface WorkoutActionPayload {
+  dayNumber: number;
+  routineTitle: string;
+  description: string;
+  exercises: Exercise[];
+  meta?: WorkoutPlanMeta;
+}
+
 interface WorkoutPlanDisplayProps {
   weeklyPlan: WorkoutDay[];
   onGenerateNew: () => void;
+  onSaveWorkoutDay?: (payload: WorkoutActionPayload) => void;
+  onShareWorkoutDay?: (payload: WorkoutActionPayload) => void;
+  planMeta?: WorkoutPlanMeta;
 }
 
 const ExerciseItem = ({ exercise }: { exercise: Exercise }) => {
@@ -71,7 +88,7 @@ const ExerciseItem = ({ exercise }: { exercise: Exercise }) => {
   );
 };
 
-export default function WorkoutPlanDisplay({ weeklyPlan, onGenerateNew }: WorkoutPlanDisplayProps) {
+export default function WorkoutPlanDisplay({ weeklyPlan, onGenerateNew, onSaveWorkoutDay, onShareWorkoutDay, planMeta }: WorkoutPlanDisplayProps) {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="text-center space-y-2">
@@ -97,10 +114,54 @@ export default function WorkoutPlanDisplay({ weeklyPlan, onGenerateNew }: Workou
             >
               <CardHeader className="bg-gradient-to-br from-primary/10 to-accent/10">
                 <div className="flex items-center justify-between mb-2">
-                  <Badge variant="secondary" className="text-xs">
-                    Day {day.day}
-                  </Badge>
-                  <Dumbbell className="h-5 w-5 text-primary" />
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="text-xs">
+                      Day {day.day}
+                    </Badge>
+                    <Dumbbell className="h-5 w-5 text-primary" />
+                  </div>
+                  {(onSaveWorkoutDay || onShareWorkoutDay) && (
+                    <div className="flex items-center gap-2">
+                      {onSaveWorkoutDay && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-primary"
+                          onClick={() =>
+                            onSaveWorkoutDay({
+                              dayNumber: day.day,
+                              routineTitle: day.title,
+                              description: day.description,
+                              exercises: day.exercises,
+                              meta: planMeta,
+                            })
+                          }
+                        >
+                          <BookmarkPlus className="h-4 w-4" />
+                          <span className="sr-only">Save workout day</span>
+                        </Button>
+                      )}
+                      {onShareWorkoutDay && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-primary"
+                          onClick={() =>
+                            onShareWorkoutDay({
+                              dayNumber: day.day,
+                              routineTitle: day.title,
+                              description: day.description,
+                              exercises: day.exercises,
+                              meta: planMeta,
+                            })
+                          }
+                        >
+                          <Share2 className="h-4 w-4" />
+                          <span className="sr-only">Share workout day</span>
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <CardTitle className="text-lg">{day.title}</CardTitle>
                 <CardDescription className="text-sm">{day.description}</CardDescription>

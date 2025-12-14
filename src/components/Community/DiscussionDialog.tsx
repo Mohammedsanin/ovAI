@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,14 +8,44 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { PlusCircle } from 'lucide-react';
+import { useUserRole } from '@/hooks/useUserRole';
 
-export const DiscussionDialog = () => {
+interface DiscussionDialogProps {
+  triggerLabel?: string;
+  presetCategory?: string | null;
+  hideCategorySelect?: boolean;
+  restrictToDoctor?: boolean;
+  buttonVariant?: 'default' | 'secondary' | 'outline' | 'ghost';
+  buttonSize?: 'default' | 'sm' | 'lg';
+  description?: string;
+  disabledTooltip?: string;
+}
+
+export const DiscussionDialog = ({
+  triggerLabel = 'New Post',
+  presetCategory = null,
+  hideCategorySelect = false,
+  restrictToDoctor = false,
+  buttonVariant = 'default',
+  buttonSize = 'default',
+  description = 'Share your thoughts with the community',
+  disabledTooltip = 'Only doctors can create posts here',
+}: DiscussionDialogProps) => {
   const { toast } = useToast();
+  const { isDoctor } = useUserRole();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [category, setCategory] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  const isRestricted = restrictToDoctor && !isDoctor;
+
+  useEffect(() => {
+    if (open) {
+      setCategory(presetCategory ?? '');
+    }
+  }, [open, presetCategory]);
 
   const createDiscussion = async () => {
     if (!title.trim() || !content.trim()) {
@@ -31,11 +61,16 @@ export const DiscussionDialog = () => {
         return;
       }
 
+      if (isRestricted) {
+        toast({ title: 'Restricted', description: disabledTooltip, variant: 'destructive' });
+        return;
+      }
+
       const { error } = await supabase.from('discussions').insert({
         user_id: user.id,
         title: title.trim(),
         content: content.trim(),
-        category: category || null
+        category: hideCategorySelect ? (presetCategory || null) : category || null
       });
 
       if (error) throw error;
@@ -54,17 +89,22 @@ export const DiscussionDialog = () => {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(value) => !isRestricted && setOpen(value)}>
       <DialogTrigger asChild>
-        <Button>
+        <Button
+          variant={buttonVariant}
+          size={buttonSize}
+          disabled={isRestricted}
+          title={isRestricted ? disabledTooltip : undefined}
+        >
           <PlusCircle className="mr-2 h-4 w-4" />
-          New Post
+          {triggerLabel}
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Start a New Discussion</DialogTitle>
-          <DialogDescription>Share your thoughts with the community</DialogDescription>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div>
@@ -75,21 +115,25 @@ export const DiscussionDialog = () => {
               placeholder="What's the main topic of your discussion?"
             />
           </div>
-          <div>
-            <Label>Category (optional)</Label>
-            <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Cycle Support">Cycle Support</SelectItem>
-                <SelectItem value="Wellness Challenges">Wellness Challenges</SelectItem>
-                <SelectItem value="Nutrition">Nutrition</SelectItem>
-                <SelectItem value="Fitness">Fitness</SelectItem>
-                <SelectItem value="Pregnancy">Pregnancy</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {!hideCategorySelect && (
+            <div>
+              <Label>Category (optional)</Label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Cycle Support">Cycle Support</SelectItem>
+                  <SelectItem value="Wellness Challenges">Wellness Challenges</SelectItem>
+                  <SelectItem value="Nutrition">Nutrition</SelectItem>
+                  <SelectItem value="Fitness">Fitness</SelectItem>
+                  <SelectItem value="Pregnancy">Pregnancy</SelectItem>
+                  <SelectItem value="Doctor Insights">Doctor Insights</SelectItem>
+                  <SelectItem value="Ask Doctor">Ask Doctor</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div>
             <Label>Content</Label>
             <Textarea
