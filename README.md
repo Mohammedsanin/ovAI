@@ -12,7 +12,7 @@
 [![Vite](https://img.shields.io/badge/Vite-5.4.19-646CFF?logo=vite)](https://vitejs.dev/)
 [![Supabase](https://img.shields.io/badge/Supabase-Backend-3ECF8E?logo=supabase)](https://supabase.com/)
 
-[Live Demo](https://lovable.dev/projects/44492a65-743e-45f9-aa4f-0570acf6f968) • [Report Bug](https://github.com/yourusername/ovai/issues) • [Request Feature](https://github.com/yourusername/ovai/issues)
+[Live Demo](sooon) • [Report Bug](https://github.com/Mohammedsanin/ovai/issues) • [Request Feature](https://github.com/yourusername/ovai/issues)
 
 </div>
 
@@ -149,7 +149,7 @@ Before you begin, ensure you have the following installed:
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/ovai.git
+   git clone https://github.com/Mohammedsanin/ovai.git
    cd ovai
    ```
 
@@ -299,47 +299,6 @@ Healthcare provider search and location services use:
 
 ---
 
-## 🌐 Deployment
-
-### Deploy with Lovable
-
-The easiest way to deploy OvAI:
-
-1. Open your [Lovable project](https://lovable.dev/projects/44492a65-743e-45f9-aa4f-0570acf6f968)
-2. Click **Share → Publish**
-3. Your app will be live instantly!
-
-### Deploy with Vercel
-
-```bash
-# Install Vercel CLI
-npm i -g vercel
-
-# Deploy
-vercel
-```
-
-### Deploy with Netlify
-
-```bash
-# Install Netlify CLI
-npm i -g netlify-cli
-
-# Build and deploy
-npm run build
-netlify deploy --prod --dir=dist
-```
-
-### Custom Domain
-
-To connect a custom domain:
-1. Navigate to **Project → Settings → Domains**
-2. Click **Connect Domain**
-3. Follow the DNS configuration instructions
-
-[Learn more about custom domains](https://docs.lovable.dev/features/custom-domain#custom-domain)
-
----
 
 ## 🤝 Contributing
 
@@ -384,15 +343,15 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 
 ## 📧 Contact
 
-**Project Maintainer**: Your Name
+**Project Maintainer**: Mohammed Sanin
 
-- **Email**: your.email@example.com
-- **GitHub**: [@yourusername](https://github.com/yourusername)
-- **Twitter**: [@yourhandle](https://twitter.com/yourhandle)
+- **Email**: saninmohammed03@gmail.com
+- **GitHub**: [@yourusername](https://github.com/Mohammedsanin)
+- **Linkedin**: [@yourhandle](www.linkedin.com/in/mohammed-sanin)
 
-**Project Link**: [https://github.com/yourusername/ovai](https://github.com/yourusername/ovai)
+**Project Link**: [https://github.com/Mohammedsanin/ovai](https://github.com/Mohammedsanin/ovai)
 
-**Live Demo**: [https://lovable.dev/projects/44492a65-743e-45f9-aa4f-0570acf6f968](https://lovable.dev/projects/44492a65-743e-45f9-aa4f-0570acf6f968)
+**Live Demo**: soon
 
 ---
 
