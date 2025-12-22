@@ -360,7 +360,6 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 - [shadcn/ui](https://ui.shadcn.com/) for the beautiful UI components
 - [Supabase](https://supabase.com/) for the backend infrastructure
 - [Google Gemini](https://deepmind.google/technologies/gemini/) for AI capabilities
-- [Lovable](https://lovable.dev/) for the development platform
 - All contributors who have helped shape OvAI
 
 ---
