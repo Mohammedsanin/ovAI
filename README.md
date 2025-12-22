@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![OvAI Banner](https://lovable.dev/opengraph-image-p98pqg.png)
+![OvAI Banner](./src/assets/ovai-banner.png)
 
 **Your Complete Women's Health Companion**
 
